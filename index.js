@@ -94,7 +94,8 @@ bot.onMessage(async (channel, user, message, self) => {
     const command = commandNames.find(cmd => message.toLowerCase().startsWith(cmd));
     if (command) {
         if (elapsedTime < COOLDOWN_DURATION) {
-            bot.say(channel, `Cooldown active. Please wait ${COOLDOWN_DURATION - elapsedTime.toFixed(1)} seconds before sending another message.`);
+            const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime); // Rounds to the nearest integer
+            bot.say(channel, `Don't be annoying. Wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before pestering me again.`);
             return;
         }
         lastResponseTime = currentTime; // Update the last response time
