@@ -1,5 +1,6 @@
 // Import tmi.js module
 import tmi from 'tmi.js';
+import axios from 'axios';
 import OpenAI from 'openai';
 import { promises as fsPromises } from 'fs';
 
@@ -30,6 +31,21 @@ export class TwitchBot {
         }
     }
 
+    async checkSubscriptionStatus(channelId, userId) {
+    try {
+        const response = await axios.get(`https://api.twitch.tv/helix/subscriptions?broadcaster_id=${channelId}&user_id=${userId}`, {
+            headers: {
+                'Client-ID': process.env.TWITCH_CLIENT_ID,
+                'Authorization': `Bearer ${process.env.TWITCH_AUTH_TOKEN}`
+            }
+        });
+
+        return response.data.data.length > 0;
+    } catch (error) {
+        console.error('Error checking subscription status:', error);
+        return false;
+        }
+    }
     connect() {
         // Use async/await syntax to handle promises
         (async () => {
