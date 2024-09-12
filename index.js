@@ -74,58 +74,59 @@ bot.connect(
 );
 
 bot.onMessage(async (channel, user, message, self) => {
-    if (self) return; // Ignore the bot's own messages
+    if (self) return;
 
     const currentTime = Date.now();
-    const elapsedTime = (currentTime - lastResponseTime) / 1000; // Cooldown check in seconds
+    const elapsedTime = (currentTime - lastResponseTime) / 1000; // Time in seconds
 
-    // Handle only the !maxpt command
-    if (message.trim() === '!maxpt') {
-        const userId = user['user-id']; // Get the user ID from the message metadata
-        const channelId = 'your_channel_id'; // Replace with your actual Twitch channel ID
-
-        // Check if the user is subscribed
-        const isSubscribed = await bot.checkSubscriptionStatus(channelId, userId);
-
-        if (!isSubscribed) {
-            // If the user is not subscribed, send the rejection message
-            bot.say(channel, `Ummm @${user['display-name']}, you can't use me. Sub or Fuck off.`);
-            return;
-        }
-
-        // Cooldown logic: Ensure sufficient time has passed before responding again
+    if (ENABLE_CHANNEL_POINTS === 'true' && user['msg-id'] === 'highlighted-message') {
+        console.log(`Highlighted message: ${message}`);
         if (elapsedTime < COOLDOWN_DURATION) {
-            const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime);
-            bot.say(channel, `Slow down @${user['display-name']}. You gotta wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before using the command again.`);
+            bot.say(channel, `Cooldown active. Please wait ${COOLDOWN_DURATION - elapsedTime.toFixed(1)} seconds before sending another message.`);
             return;
         }
+        lastResponseTime = currentTime; // Update the last response time
 
-        // Update the last response time to enforce cooldown
-        lastResponseTime = currentTime;
+        const response = await openaiOps.make_openai_call(message);
+        bot.say(channel, response);
+    }
 
-        try {
-            // Send the user's message to OpenAI for a response
-            const response = await openaiOps.make_openai_call(message);
-            
-            // Send the response from OpenAI to the Twitch chat
-            if (response.length > maxLength) {
-                const splitMessages = response.match(new RegExp(`.{1,${maxLength}}`, 'g')); // Split response into chunks if necessary
-                splitMessages.forEach((msg, index) => {
-                    setTimeout(() => {
-                        bot.say(channel, msg);
-                    }, 1000 * index); // Send each chunk with a delay between them
-                });
-            } else {
-                // If the response is short enough, send it in one message
-                bot.say(channel, response);
+    const command = commandNames.find(cmd => message.toLowerCase().startsWith(cmd));
+    if (command) {
+        if (elapsedTime < COOLDOWN_DURATION) {
+            const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime); // Rounds to the nearest integer
+            bot.say(channel, `Slow down ${user.username}. You gotta wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before being a pest again.`);
+            return;
+        }
+        lastResponseTime = currentTime; // Update the last response time
+
+        let text = message.slice(command.length).trim();
+        if (SEND_USERNAME === 'true') {
+            text = `Message from user ${user.username}: ${text}`;
+        }
+
+        const response = await openaiOps.make_openai_call(text);
+        if (response.length > maxLength) {
+            const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g'));
+            messages.forEach((msg, index) => {
+                setTimeout(() => {
+                    bot.say(channel, msg);
+                }, 1000 * index);
+            });
+        } else {
+            bot.say(channel, response);
+        }
+
+        if (ENABLE_TTS === 'true') {
+            try {
+                const ttsAudioUrl = await bot.sayTTS(channel, response, user['userstate']);
+                notifyFileChange(ttsAudioUrl);
+            } catch (error) {
+                console.error('TTS Error:', error);
             }
-        } catch (error) {
-            console.error('Error generating OpenAI response:', error);
-            bot.say(channel, `Sorry @${user['display-name']}, something went wrong while fetching your response.`);
         }
     }
 });
-
 
 app.ws('/check-for-updates', (ws, req) => {
     ws.on('message', message => {
