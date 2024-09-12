@@ -95,7 +95,7 @@ bot.onMessage(async (channel, user, message, self) => {
     if (command) {
         if (elapsedTime < COOLDOWN_DURATION) {
             const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime); // Rounds to the nearest integer
-            bot.say(channel, `Don't be annoying. Wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before pestering me again.`);
+            bot.say(channel, `Slow down ${user.username}. You gotta wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before being a pest again.`);
             return;
         }
         lastResponseTime = currentTime; // Update the last response time
